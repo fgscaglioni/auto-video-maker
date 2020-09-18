@@ -1,22 +1,23 @@
 const algorithmia = require('algorithmia')
 const algorithmiaApiKey = require('../credentials/algorithmia.json').apiKey
-const sentenceBounderyDetection = require('sbd')
+const sentenceBoundaryDetection = require('sbd')
 
-const watsonCredentials = require('../credentials/watson-nlu.json')
+const watsonApiKey = require('../credentials/watson-nlu.json').apikey
+const NaturalLanguageUnderstandingV1 = require('watson-developer-cloud/natural-language-understanding/v1.js')
 
-const NaturalLanguageUnderstandingV1 = require('watson-developer-cloud/natural-language-understanding/v1')
 const nlu = new NaturalLanguageUnderstandingV1({
-  iam_apikey: watsonCredentials.apikey,
+  iam_apikey: watsonApiKey,
   version: '2018-04-05',
   url: 'https://gateway.watsonplatform.net/natural-language-understanding/api/'
 })
 
-const state = require('./state')
+const state = require('./state.js')
 
 async function robot() {
+  console.log('> [text-robot] Starting...')
   const content = state.load()
 
-  await fetchContentFromWikepedia(content)
+  await fetchContentFromWikipedia(content)
   sanitizeContent(content)
   breakContentIntoSentences(content)
   limitMaximumSentences(content)
@@ -24,13 +25,15 @@ async function robot() {
 
   state.save(content)
 
-  async function fetchContentFromWikepedia(content) {
+  async function fetchContentFromWikipedia(content) {
+    console.log('> [text-robot] Fetching content from Wikipedia')
     const algorithmiaAuthenticated = algorithmia(algorithmiaApiKey)
     const wikipediaAlgorithm = algorithmiaAuthenticated.algo('web/WikipediaParser/0.1.2')
     const wikipediaResponse = await wikipediaAlgorithm.pipe(content.searchTerm)
     const wikipediaContent = wikipediaResponse.get()
 
     content.sourceContentOriginal = wikipediaContent.content
+    console.log('> [text-robot] Fetching done!')
   }
 
   function sanitizeContent(content) {
@@ -41,21 +44,27 @@ async function robot() {
 
     function removeBlankLinesAndMarkdown(text) {
       const allLines = text.split('\n')
+
       const withoutBlankLinesAndMarkdown = allLines.filter((line) => {
-        if (line.trim().length === 0 || line.trim().startsWith('=')) return false
+        if (line.trim().length === 0 || line.trim().startsWith('=')) {
+          return false
+        }
+
         return true
-      });
-      return withoutBlankLinesAndMarkdown.join(' ');
+      })
+
+      return withoutBlankLinesAndMarkdown.join(' ')
     }
   }
 
   function removeDatesInParentheses(text) {
-    return text.replace(/\((?:\([^()]*|[^()])*\)/gm, '').replace(/ /, ' ')
+    return text.replace(/\((?:\([^()]*\)|[^()])*\)/gm, '').replace(/  /g, ' ')
   }
 
   function breakContentIntoSentences(content) {
     content.sentences = []
-    const sentences = sentenceBounderyDetection.sentences(content.sourceContentSanitized)
+
+    const sentences = sentenceBoundaryDetection.sentences(content.sourceContentSanitized)
     sentences.forEach((sentence) => {
       content.sentences.push({
         text: sentence,
@@ -70,8 +79,14 @@ async function robot() {
   }
 
   async function fetchKeywordsOfAllSentences(content) {
+    console.log('> [text-robot] Starting to fetch keywords from Watson')
+
     for (const sentence of content.sentences) {
+      console.log(`> [text-robot] Sentence: "${sentence.text}"`)
+
       sentence.keywords = await fetchWatsonAndReturnKeywords(sentence.text)
+
+      console.log(`> [text-robot] Keywords: ${sentence.keywords.join(', ')}\n`)
     }
   }
 
@@ -83,7 +98,10 @@ async function robot() {
           keywords: {}
         }
       }, (error, response) => {
-        if (error) throw error
+        if (error) {
+          reject(error)
+          return
+        }
 
         const keywords = response.keywords.map((keyword) => {
           return keyword.text
@@ -95,4 +113,5 @@ async function robot() {
   }
 
 }
+
 module.exports = robot

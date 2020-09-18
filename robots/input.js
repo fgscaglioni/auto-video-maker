@@ -1,5 +1,5 @@
 const readline = require('readline-sync')
-const state = require('./state')
+const state = require('./state.js')
 
 function robot() {
   const content = {
@@ -11,15 +11,17 @@ function robot() {
   state.save(content)
 
   function askAndReturnSearchTerm() {
-    return readline.question('Type a Wikepedia search term: ')
+    return readline.question('Type a Wikipedia search term: ')
   }
 
   function askAndReturnPrefix() {
-    const prefixes = ['Who is', 'Whats is', 'The history of ']
-    const selectedPrefixIndex = readline.keyInSelect(prefixes)
+    const prefixes = ['Who is', 'What is', 'The history of']
+    const selectedPrefixIndex = readline.keyInSelect(prefixes, 'Choose one option: ')
     const selectedPrefixText = prefixes[selectedPrefixIndex]
+
     return selectedPrefixText
   }
+
 }
 
 module.exports = robot
