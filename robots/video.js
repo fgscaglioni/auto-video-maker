@@ -235,7 +235,7 @@ async function robot() {
       };
 
       videoshow(images, videoOptions)
-        // .audio("./templates/1/newsroom.mp3")
+        .audio("./templates/1/newsroom.mp3")
         .save("content/output.mp4")
         .on("start", function (command) {
           console.log("> Processo ffmpeg iniciado:", command);
